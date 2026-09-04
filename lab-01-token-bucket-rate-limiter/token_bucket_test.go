@@ -16,29 +16,29 @@ func TestNewTokenBucketStartsFull(t *testing.T) {
 func TestAllowConsumesOneToken(t *testing.T) {
 	bucket := NewTokenBucket(10, 2)
 
-	allowed := bucket.Allow()
+	result := bucket.Allow()
 
-	if !allowed {
+	if !result.Allowed {
 		t.Error("expected request to be allowed")
 	}
 
-	if bucket.tokens != 9 {
-		t.Errorf("expected 9 tokens remaining, got %f", bucket.tokens)
+	if result.Remaining != 9 {
+		t.Errorf("expected 9 tokens remaining, got %d", result.Remaining)
 	}
 }
 
 func TestAllowRejectsWhenBucketIsEmpty(t *testing.T) {
 	bucket := NewTokenBucket(2, 1)
 
-	if !bucket.Allow() {
+	if !bucket.Allow().Allowed {
 		t.Error("expected first request to be allowed")
 	}
 
-	if !bucket.Allow() {
+	if !bucket.Allow().Allowed {
 		t.Error("expected second request to be allowed")
 	}
 
-	if bucket.Allow() {
+	if bucket.Allow().Allowed {
 		t.Error("expected third request to be rejected")
 	}
 }
@@ -64,5 +64,20 @@ func TestRefillDoesNotExceedMaxTokens(t *testing.T) {
 
 	if bucket.tokens != 10 {
 		t.Errorf("expected bucket to be capped at 10 tokens, got %f", bucket.tokens)
+	}
+}
+
+func TestAllowReturnsRetryAfterRoundedUp(t *testing.T) {
+	bucket := NewTokenBucket(10, 2)
+	bucket.tokens = 0.5
+
+	result := bucket.Allow()
+
+	if result.Allowed {
+		t.Error("expected request to be rejected")
+	}
+
+	if result.RetryAfter != 1 {
+		t.Errorf("expected retry after 1 second, got %d", result.RetryAfter)
 	}
 }

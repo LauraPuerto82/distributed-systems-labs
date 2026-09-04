@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -13,6 +14,12 @@ type TokenBucket struct {
 	mu         sync.Mutex
 }
 
+type AllowResult struct {
+	Allowed    bool
+	Remaining  int
+	RetryAfter int
+}
+
 func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 	return &TokenBucket{
 		tokens:     maxTokens,
@@ -22,7 +29,17 @@ func NewTokenBucket(maxTokens, refillRate float64) *TokenBucket {
 	}
 }
 
-func (tb *TokenBucket) Allow() bool {
+func (tb *TokenBucket) retryAfter() int {
+	if tb.refillRate <= 0 {
+		return 0
+	}
+
+	secondsUntilNextToken := (1 - tb.tokens) / tb.refillRate
+
+	return int(math.Ceil(secondsUntilNextToken))
+}
+
+func (tb *TokenBucket) Allow() AllowResult {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 
@@ -30,10 +47,18 @@ func (tb *TokenBucket) Allow() bool {
 
 	if tb.tokens >= 1 {
 		tb.tokens -= 1
-		return true
+		return AllowResult{
+			Allowed:    true,
+			Remaining:  int(tb.tokens),
+			RetryAfter: 0,
+		}
 	}
 
-	return false
+	return AllowResult{
+		Allowed:    false,
+		Remaining:  0,
+		RetryAfter: tb.retryAfter(),
+	}
 }
 
 func (tb *TokenBucket) refill() {
