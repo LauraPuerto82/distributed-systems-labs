@@ -5,16 +5,21 @@ import (
 	"net/http"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 type Server struct {
-	jobs   chan Job
-	nextID uint64
+	jobs      chan Job
+	nextID    uint64
+	processFn func(Job)
 }
 
 func NewServer(queueSize int) *Server {
 	return &Server{
 		jobs: make(chan Job, queueSize),
+		processFn: func(job Job) {
+			time.Sleep(500 * time.Millisecond)
+		},
 	}
 }
 
