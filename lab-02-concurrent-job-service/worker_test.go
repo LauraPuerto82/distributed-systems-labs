@@ -79,3 +79,39 @@ func TestWorkerPoolProcessesMultipleJobs(t *testing.T) {
 		t.Error("expected job 3 to be processed")
 	}
 }
+
+func TestWorkersFinishAfterJobsChannelIsClosed(t *testing.T) {
+	server := NewServer(10)
+
+	processed := make(chan Job, 2)
+
+	server.processFn = func(job Job) {
+		processed <- job
+	}
+
+	server.startWorkers(2)
+
+	server.jobs <- Job{ID: "1", Data: "first"}
+	server.jobs <- Job{ID: "2", Data: "second"}
+
+	close(server.jobs)
+
+	done := make(chan struct{})
+
+	go func() {
+		server.workers.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Expected: all workers finished.
+
+	case <-time.After(1 * time.Second):
+		t.Fatal("workers did not finish after jobs channel was closed")
+	}
+
+	if len(processed) != 2 {
+		t.Errorf("expected 2 jobs to be processed, got %d", len(processed))
+	}
+}

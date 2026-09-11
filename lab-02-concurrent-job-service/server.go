@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -12,6 +13,7 @@ type Server struct {
 	jobs      chan Job
 	nextID    uint64
 	processFn func(Job)
+	workers   sync.WaitGroup
 }
 
 func NewServer(queueSize int) *Server {
