@@ -12,6 +12,7 @@ import (
 type Server struct {
 	jobs      chan Job
 	nextID    uint64
+	processed uint64
 	processFn func(Job)
 	workers   sync.WaitGroup
 }
@@ -60,4 +61,23 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"job_id": job.ID,
 	})
+}
+
+func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	metrics := map[string]uint64{
+		"queued":    uint64(len(s.jobs)),
+		"processed": atomic.LoadUint64(&s.processed),
+		"rejected":  0,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(metrics); err != nil {
+		http.Error(w, "failed to encode metrics", http.StatusInternalServerError)
+	}
 }

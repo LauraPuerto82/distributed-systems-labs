@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -113,5 +114,28 @@ func TestWorkersFinishAfterJobsChannelIsClosed(t *testing.T) {
 
 	if len(processed) != 2 {
 		t.Errorf("expected 2 jobs to be processed, got %d", len(processed))
+	}
+}
+
+func TestWorkerIncrementsProcessedCount(t *testing.T) {
+	server := NewServer(10)
+
+	server.processFn = func(job Job) {}
+
+	server.startWorkers(1)
+
+	server.jobs <- Job{
+		ID:   "1",
+		Data: "test",
+	}
+
+	close(server.jobs)
+
+	server.workers.Wait()
+
+	got := atomic.LoadUint64(&server.processed)
+
+	if got != 1 {
+		t.Errorf("expected processed count 1, got %d", got)
 	}
 }

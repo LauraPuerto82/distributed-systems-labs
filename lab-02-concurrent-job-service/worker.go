@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"log"
+	"sync/atomic"
+)
 
 func (s *Server) startWorkers(numWorkers int) {
 	for i := 0; i < numWorkers; i++ {
@@ -15,6 +18,8 @@ func (s *Server) startWorkers(numWorkers int) {
 				log.Printf("worker %d processing job %s", workerID, job.ID)
 
 				s.processFn(job)
+
+				atomic.AddUint64(&s.processed, 1)
 
 				log.Printf("worker %d finished job %s", workerID, job.ID)
 			}

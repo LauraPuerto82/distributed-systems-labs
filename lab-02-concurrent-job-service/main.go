@@ -16,6 +16,7 @@ func main() {
 	server.startWorkers(5)
 
 	http.HandleFunc("/jobs", server.handleJobs)
+	http.HandleFunc("/metrics", server.handleMetrics)
 
 	httpServer := &http.Server{
 		Addr: ":8080",

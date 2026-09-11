@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -163,5 +165,41 @@ func TestHandleJobsBlocksWhenQueueIsFull(t *testing.T) {
 
 	default:
 		t.Fatal("expected new job to be queued")
+	}
+}
+
+func TestHandleMetricsReturnsCurrentMetrics(t *testing.T) {
+	server := NewServer(10)
+
+	server.jobs <- Job{ID: "1", Data: "first"}
+	server.jobs <- Job{ID: "2", Data: "second"}
+
+	atomic.StoreUint64(&server.processed, 3)
+
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rec := httptest.NewRecorder()
+
+	server.handleMetrics(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var metrics map[string]uint64
+
+	if err := json.NewDecoder(rec.Body).Decode(&metrics); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if metrics["queued"] != 2 {
+		t.Errorf("expected queued 2, got %d", metrics["queued"])
+	}
+
+	if metrics["processed"] != 3 {
+		t.Errorf("expected processed 3, got %d", metrics["processed"])
+	}
+
+	if metrics["rejected"] != 0 {
+		t.Errorf("expected rejected 0, got %d", metrics["rejected"])
 	}
 }
